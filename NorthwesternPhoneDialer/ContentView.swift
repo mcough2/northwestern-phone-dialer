@@ -4,6 +4,8 @@ import UIKit
 struct ContentView: View {
     // Tracks the five-digit extension typed by the user
     @State private var fiveDigitInput: String = ""
+    @State private var showDialError = false
+    @State private var dialErrorMessage: String = ""
 
     // Determines the correct 5-digit prefix based on the first digit of the user's input.
     private var numberPrefix: String? {
@@ -107,6 +109,11 @@ struct ContentView: View {
                         .animation(.spring(), value: isDialButtonEnabled)
                 }
                 .disabled(!isDialButtonEnabled)
+                .alert("Unable to Place Call", isPresented: $showDialError) {
+                    Button("OK", role: .cancel) { }
+                } message: {
+                    Text(dialErrorMessage)
+                }
 
                 Spacer()
             }
@@ -116,12 +123,21 @@ struct ContentView: View {
     private func dialNumber() {
         guard let numberToDial = fullPhoneNumber else { return }
 
-        let telephoneURLString = "tel://\(numberToDial)"
-        guard let telephoneURL = URL(string: telephoneURLString) else { return }
+        let application = UIApplication.shared
 
-        if UIApplication.shared.canOpenURL(telephoneURL) {
-            UIApplication.shared.open(telephoneURL)
+        // Prefer the native phone app when available, otherwise fall back to FaceTime audio on iPad.
+        if let telephoneURL = URL(string: "tel://\(numberToDial)"), application.canOpenURL(telephoneURL) {
+            application.open(telephoneURL)
+            return
         }
+
+        if let facetimeURL = URL(string: "facetime-audio://\(numberToDial)"), application.canOpenURL(facetimeURL) {
+            application.open(facetimeURL)
+            return
+        }
+
+        dialErrorMessage = "This device cannot place calls for this number. Please try FaceTime Audio or use a phone-enabled device."
+        showDialError = true
     }
 }
 
